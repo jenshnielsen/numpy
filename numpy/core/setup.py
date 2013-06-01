@@ -898,10 +898,16 @@ def configuration(parent_package='',top_path=None):
     def get_dotblas_sources(ext, build_dir):
         if blas_info:
             if ('NO_ATLAS_INFO',1) in blas_info.get('define_macros',[]):
-                return None # dotblas needs ATLAS, Fortran compiled blas will not be sufficient.
-            return ext.depends[:1]
-        return None # no extension module will be built
-
+                pass
+                #return None # dotblas needs ATLAS, Fortran compiled blas will not be sufficient.
+        return ext.depends[:1]
+    print "DotBLASDotBLASDotBLAS"
+    print blas_info
+    print "and"
+    blas_info = {'libraries': ['openblas'], 'library_dirs': ['/usr/local/Cellar/openblas/0.2.6/lib'],'extra_link_args': ['-lopenblas'], 'extra_compile_args': ['-msse3', '-I/usr/local/Cellar/openblas/0.2.6/include/'], 'define_macros': [('NO_ATLAS_INFO', 3)]}
+    print blas_info
+    #return None # no extension module will be built
+        
     config.add_extension('_dotblas',
                          sources = [get_dotblas_sources],
                          depends = [join('blasdot','_dotblas.c'),
