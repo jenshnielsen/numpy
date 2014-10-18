@@ -2783,12 +2783,37 @@ class MaskedArray(ndarray):
         """
         # Get main attributes .........
         self._update_from(obj)
+        # There might be some correspondence between the elements in the array
+        # we are being created from (= obj) and us. Or there might not! This
+        # method can be called in all kinds of places for all kinds of reasons
+        # -- could be empty_like, could be slicing, could be a ufunc, could be
+        # a view, who knows! The numpy subclassing interface is wildly
+        # inadequate! This means we have no idea what to do with the passed-in
+        # object's mask -- maybe we should take a copy and use it for our own,
+        # maybe not. Users apparently can't even agree whether something like
+        # empty_like should have the same mask or an empty one -- most think
+        # it should be empty (see gh-3404 and linked discussions), but
+        # historically it's had the same one, and there is code out there that
+        # depends on it, and ugh.
+        #
+        # Historically what we did was, if the template object mask had the
+        # same *number of elements* as us, then we used *it's mask object
+        # itself* as our mask, so that writes to us would also write to the
+        # original array. This is horribly broken in multiple ways.
+        #
+        # Now what we do instead is, if the template object mask has the same
+        # number of elements as us, and we do not have the same base pointer
+        # as the template object (b/c views like arr[...] should keep the same
+        # mask), then we make a copy of the template object mask and use
+        # that. This is also horribly broken but somewhat less so. Maybe.
         if isinstance(obj, ndarray):
-            odtype = obj.dtype
-            if odtype.names:
-                _mask = getattr(obj, '_mask', make_mask_none(obj.shape, odtype))
-            else:
-                _mask = getattr(obj, '_mask', nomask)
+            default_mask = nomask
+            if obj.dtype.names:
+                default_mask = make_mask_none(obj.shape, obj.dtype)
+            _mask = getattr(obj, '_mask', default_mask)
+            if (obj.__array_interface__["data"][0]
+                    != self.__array_interface__["data"][0]):
+                _mask = _mask.copy()
         else:
             _mask = nomask
         self._mask = _mask
